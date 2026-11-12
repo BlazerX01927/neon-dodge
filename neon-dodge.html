@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#090d20">
+<title>NEON DODGE</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#090d20;color:#fff;font-family:system-ui,sans-serif;display:flex;justify-content:center;min-height:100vh}
+#game{width:min(100%,430px);padding:14px;display:flex;flex-direction:column;gap:12px}
+header,.stats{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+.brand{font-weight:900;letter-spacing:3px;color:#65efff}
+canvas{width:100%;height:auto;aspect-ratio:360/520;border-radius:14px;background:#080d20;touch-action:none;border:1px solid #293b68}
+.controls{display:flex;gap:12px}.controls button,#start{border:1px solid #41558b;border-radius:12px;background:#172348;color:#b9f8ff;padding:14px;font-size:20px;font-weight:800}
+.controls button{flex:1;touch-action:none}#overlay{position:absolute;inset:0;background:#080d20df;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:13px;border-radius:14px;padding:20px}
+.stage{position:relative}.sub{font-size:13px;color:#b8c3df}
+</style>
+</head>
+<body>
+<main id="game">
+<header><span class="brand">✦ NEON DODGE</span><span>BEST: <b id="best">0</b></span></header>
+<div class="stats"><span>SKOR <b id="score" style="color:#65efff">0</b></span><span>KOIN <b id="coins" style="color:#ffd84c">0</b></span></div>
+<div class="stage">
+<canvas id="board" width="360" height="520"></canvas>
+<div id="overlay"><div style="font-size:44px">🚀</div><h2 style="margin:0;color:#65efff">NEON DODGE</h2><p class="sub">Hindari meteor merah dan kumpulkan koin emas!</p><button id="start">▶ MULAI MAIN</button><p class="sub">Geser pesawat atau gunakan tombol bawah</p></div>
+</div>
+<div class="controls"><button id="left" aria-label="Kiri">◀</button><button id="right" aria-label="Kanan">▶</button></div>
+<p class="sub" style="text-align:center;margin:0">Sentuh dan tahan tombol untuk bergerak. Hindari meteor!</p>
+</main>
+<script>
+(()=>{
+const c=document.getElementById('board'),ctx=c.getContext('2d');
+const $=id=>document.getElementById(id);
+let player={x:180,y:455},objects=[],score=0,coins=0,alive=false,frame=0,last=0,raf=0,dir=0,drag=false,best=0;
+try{best=Number(localStorage.getItem('neondodgebest'))||0}catch(e){}
+$('best').textContent=best;
+function reset(){player.x=180;objects=[];score=0;coins=0;frame=0;dir=0;$('score').textContent=0;$('coins').textContent=0}
+function spawn(){let coin=Math.random()<.25;objects.push({x:18+Math.random()*324,y:-20,r:coin?9:13,coin,spd:2.3+Math.min(score/120,4)+Math.random()*1.4})}
+function end(){alive=false;cancelAnimationFrame(raf);if(score>best){best=score;$('best').textContent=best;try{localStorage.setItem('neondodgebest',best)}catch(e){}}
+$('overlay').style.display='flex';$('overlay').innerHTML='<div style="font-size:44px">💥</div><h2 style="color:#ff9cac;margin:0">GAME OVER</h2><div>Skor: '+score+' · Koin: '+coins+'</div><button id="again">↻ MAIN LAGI</button><p class="sub">Coba pecahkan rekor lu!</p>';$('again').onclick=start}
+function draw(){
+ctx.clearRect(0,0,360,520);let g=ctx.createLinearGradient(0,0,0,520);g.addColorStop(0,'#101938');g.addColorStop(1,'#090d20');ctx.fillStyle=g;ctx.fillRect(0,0,360,520);
+for(let i=0;i<45;i++){let x=(i*83)%360,y=(i*137+frame*.35)%520;ctx.fillStyle='#9ac9ff';ctx.globalAlpha=.25+(i%3)*.2;ctx.fillRect(x,y,2,2)}ctx.globalAlpha=1;
+objects.forEach(o=>{if(o.coin){ctx.shadowColor='#ffd84c';ctx.shadowBlur=15;ctx.fillStyle='#ffd84c';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#714600';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.fillText('$',o.x,o.y+4)}else{ctx.shadowColor='#ff385d';ctx.shadowBlur=13;ctx.fillStyle='#ff496b';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#ffb0ba';ctx.beginPath();ctx.arc(o.x-4,o.y-4,3,0,7);ctx.fill()}});
+ctx.save();ctx.translate(player.x,player.y);ctx.shadowColor='#39eaff';ctx.shadowBlur=20;ctx.fillStyle='#54eaff';ctx.beginPath();ctx.moveTo(0,-19);ctx.lineTo(16,15);ctx.lineTo(0,9);ctx.lineTo(-16,15);ctx.closePath();ctx.fill();ctx.shadowBlur=0;ctx.fillStyle='#fff';ctx.fillRect(-3,-3,6,10);ctx.restore();
+}
+function loop(t){if(!alive)return;let dt=Math.min((t-last)/16.67,2);last=t;frame+=dt;score+=Math.floor(dt);if(frame%Math.max(19,45-Math.floor(score/90))<dt)spawn();player.x=Math.max(18,Math.min(342,player.x+dir*5.2*dt));
+for(let i=objects.length-1;i>=0;i--){let o=objects[i];o.y+=o.spd*dt;let dx=o.x-player.x,dy=o.y-player.y;if(Math.hypot(dx,dy)<o.r+12){if(o.coin){coins++;score+=25;objects.splice(i,1);$('coins').textContent=coins}else{end();return}}else if(o.y>540)objects.splice(i,1)}
+$('score').textContent=score;draw();raf=requestAnimationFrame(loop)}
+function start(){cancelAnimationFrame(raf);reset();alive=true;$('overlay').style.display='none';last=performance.now();raf=requestAnimationFrame(loop)}
+$('start').onclick=start;
+function hold(id,d){let b=$(id);b.addEventListener('pointerdown',e=>{e.preventDefault();dir=d;b.setPointerCapture(e.pointerId)});['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>{if(dir===d)dir=0}))}
+hold('left',-1);hold('right',1);
+c.addEventListener('pointerdown',e=>{drag=true;move(e)});c.addEventListener('pointermove',e=>{if(drag)move(e)});
+function move(e){let r=c.getBoundingClientRect();player.x=Math.max(18,Math.min(342,(e.clientX-r.left)/r.width*360))}
+['pointerup','pointercancel','pointerleave'].forEach(ev=>c.addEventListener(ev,()=>drag=false));
+draw();
+})();
+</script>
+</body>
+</html>
